@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\Calculator as CalculatorContract;
+use App\Models\Rate;
 use App\Rates\Calculator;
 use Carbon\Carbon as c;
 
@@ -22,10 +23,11 @@ class CalculatorTest extends TestCase
         // TODO: return a calculator set up with the correct rates for each scenario
         switch ($case) {
             case static::SCENARIO_A:
+                return new Calculator(Rate::where('company_name', 'A')->get());
             case static::SCENARIO_B:
+                return new Calculator(Rate::where('company_name', 'B')->get());
             case static::SCENARIO_C:
-            default:
-                return new Calculator();
+                return new Calculator(Rate::where('company_name', 'B')->get());
         }
     }
 
