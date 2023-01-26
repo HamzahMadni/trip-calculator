@@ -33,34 +33,79 @@ class Calculator implements CalculatorContract
         $timeCost = 0;
         $distanceCost = 0;
         $minutesElapsed = 0;
+        $nonDailyMaxRate = $this->rates
+            ->filter(fn ($rate) => $rate->rate_type === 'max' && !$rate->daily_max)
+            ->first();
+        $minutesElapsedDuringNonDailyMaxRate = 0;
+        $nonDailyMaxRateTotal = 0;
+        $nonDailyMaxRateTotals = collect();
         $twentyFourHourTotal = 0;
         $twentyFourHourTotals = collect();
         $fifteenMinuteChunks = collect(new DatePeriod($start, new DateInterval('PT15M'), $end));
 
-        $fifteenMinuteChunks->each(function ($chunk) use (&$timeCost, &$minutesElapsed, &$twentyFourHourTotal, &$twentyFourHourTotals, $start, $end) {
+        $fifteenMinuteChunks->each(function ($chunk) use (&$timeCost, &$minutesElapsed, &$minutesElapsedDuringNonDailyMaxRate, &$twentyFourHourTotal, &$twentyFourHourTotals, $start, $end, $nonDailyMaxRate, &$nonDailyMaxRateTotal, $nonDailyMaxRateTotals) {
             $minutesElapsed += 15;
             echo "\n-------------------------\n";
             echo "\nCURRENT TIME: {$chunk->toTimeString()}\n";
             echo "\nTIME COST: {$timeCost}\n";
             if ($chunk->isWeekday()) {
+                if (isset($nonDailyMaxRate) && !$nonDailyMaxRate->is_weekend) {
+                    // is $chunk->hour within hours of non daily max rate if yes increment
+                }
                 $this->rates
                     ->filter(fn ($rate) => !$rate->is_weekend && $rate->rate_type === 'time')
-                    ->each(function ($rate) use ($chunk, &$timeCost, &$twentyFourHourTotal) {
-                        if ($chunk->hour >= $rate->start_hour && $chunk->hour < 24 || $chunk->hour <= $rate->end_hour) {
+                    ->each(function ($rate) use ($chunk, &$timeCost, &$twentyFourHourTotal, $nonDailyMaxRate, &$nonDailyMaxRateTotal) {
+                        if (
+                            $rate->start_hour < $rate->end_hour
+                                ? ($chunk->hour >= $rate->start_hour && $chunk->hour < $rate->end_hour)
+                                : ($chunk->hour >= $rate->start_hour || $chunk->hour < $rate->end_hour)
+
+                            // $rate->start_hour < $rate->end_hour
+                            //     ? ($chunk->hour >= $rate->start_hour && $chunk->hour < $rate->end_hour)
+                            //     : !($chunk->hour > $rate->start_hour && $chunk->hour <= $rate->end_hour)
+                        ) {
                             echo "\nRATE BEING ADDED: {$rate->default_rate}\n";
                             $timeCost = $timeCost  + $rate->default_rate;
                             $twentyFourHourTotal += $rate->default_rate;
+                            // var_dump($nonDailyMaxRate->toArray());
+                            if (
+                                isset($nonDailyMaxRate)
+                                && (
+                                    $chunk->hour >= $nonDailyMaxRate->start_hour
+                                    && $chunk->hour < 24
+                                    || $chunk->hour <= $nonDailyMaxRate->end_hour
+                                )
+                            ) {
+                                $nonDailyMaxRateTotal += $rate->default_rate;
+                            }
                             echo "\nTIME COST AFTER: {$timeCost}\n";
                         }
                     });
             } else {
+                if (isset($nonDailyMaxRate) && $nonDailyMaxRate->is_weekend) {
+                    // is $chunk->hour within hours of non daily max rate if yes increment 
+                }
                 $this->rates
                     ->filter(fn ($rate) => $rate->is_weekend && $rate->rate_type === 'time')
-                    ->each(function ($rate) use ($chunk, &$timeCost, &$twentyFourHourTotal) {
-                        if ($chunk->hour >= $rate->start_hour && $chunk->hour < 24 || $chunk->hour <= $rate->end_hour) {
+                    ->each(function ($rate) use ($chunk, &$timeCost, &$twentyFourHourTotal, $nonDailyMaxRate, &$nonDailyMaxRateTotal) {
+                        if (
+                            $rate->start_hour < $rate->end_hour
+                                ? ($chunk->hour >= $rate->start_hour && $chunk->hour < $rate->end_hour)
+                                : ($chunk->hour >= $rate->start_hour || $chunk->hour < $rate->end_hour)
+                        ) {
                             echo "\nRATE BEING ADDED: {$rate->default_rate}\n";
                             $timeCost = $timeCost  + $rate->default_rate;
                             $twentyFourHourTotal += $rate->default_rate;
+                            if (
+                                isset($nonDailyMaxRate)
+                                && (
+                                    $chunk->hour >= $nonDailyMaxRate->start_hour
+                                    && $chunk->hour < 24
+                                    || $chunk->hour <= $nonDailyMaxRate->end_hour
+                                )
+                            ) {
+                                $nonDailyMaxRateTotal += $rate->default_rate;
+                            }
                             echo "\nTIME COST AFTER: {$timeCost}\n";
                         }
                     });
@@ -72,6 +117,19 @@ class Calculator implements CalculatorContract
                 $twentyFourHourTotal = 0;
                 $minutesElapsed = 0;
             }
+
+            if (
+                isset($nonDailyMaxRate)
+                && $minutesElapsedDuringNonDailyMaxRate === min(
+                    $start->diffInMinutes($end),
+                    abs($nonDailyMaxRate->start_hour - $nonDailyMaxRate->end_hour) * 60
+                )
+            ) {
+                echo "\nMINUTES ELAPSED NON DAILY: {$minutesElapsedDuringNonDailyMaxRate}\n";
+                $nonDailyMaxRateTotals->push($nonDailyMaxRateTotals);
+                $nonDailyMaxRateTotal = 0;
+                $minutesElapsedDuringNonDailyMaxRate = 0;
+            }
         });
 
         $dailyMaxRate = $this->rates->filter(fn ($rate) => $rate->daily_max)->first();
@@ -81,6 +139,20 @@ class Calculator implements CalculatorContract
             $twentyFourHourTotals->each(function ($total) use (&$totalOverChargedAmount, $dailyMaxRate) {
                 if ($total > $dailyMaxRate->default_rate) {
                     $totalOverChargedAmount += $total - $dailyMaxRate->default_rate;
+                }
+            });
+
+            echo "\nTIME COST BEFORE: {$timeCost}\n";
+            $timeCost -= $totalOverChargedAmount;
+            echo "\nTIME COST AFTER: {$timeCost}\n";
+        }
+
+        if ($nonDailyMaxRate) {
+            echo "\nAPPLYING NON DAILY MAX\n";
+            $totalOverChargedAmount = 0;
+            $nonDailyMaxRateTotals->each(function ($total) use (&$totalOverChargedAmount, $nonDailyMaxRate) {
+                if ($total > $nonDailyMaxRate->default_rate) {
+                    $totalOverChargedAmount += $total - $nonDailyMaxRate->default_rate;
                 }
             });
 

@@ -27,7 +27,7 @@ class CalculatorTest extends TestCase
             case static::SCENARIO_B:
                 return new Calculator(Rate::where('company_name', 'B')->get());
             case static::SCENARIO_C:
-                return new Calculator(Rate::where('company_name', 'B')->get());
+                return new Calculator(Rate::where('company_name', 'C')->get());
         }
     }
 
@@ -126,7 +126,7 @@ class CalculatorTest extends TestCase
         int $value, int $distanceValue
     ) {
         // TODO: comment out the skip if you're feeling brave.
-        $this->markTestSkipped('Uncomment the skip in Scenario C to attempt it');
+        // $this->markTestSkipped('Uncomment the skip in Scenario C to attempt it');
 
         $calculator = $this->getCalculator(static::SCENARIO_C);
         $result = $calculator->calculate($start, $end, $distance);
@@ -146,8 +146,8 @@ class CalculatorTest extends TestCase
             [new c('2016-05-12 06:00'), new c('2016-05-12 07:00'), 12, 400, 12],
             [new c('2016-05-14 12:00'), new c('2016-05-14 16:00'), 0, 800, 0],
             [new c('2016-05-12 12:00'), new c('2016-05-14 16:00'), 0, 8600, 0],
-            [new c('2016-05-13 20:00'), new c('2016-05-14 06:00'), 0, 1600, 0],
-            [new c('2016-05-13 18:00'), new c('2016-05-14 04:00'), 0, 2400, 0],
+            [new c('2016-05-13 20:00'), new c('2016-05-14 06:00'), 0, 2800, 0],
+            [new c('2016-05-13 18:00'), new c('2016-05-14 04:00'), 0, 3465, 0],
         ];
     }
 }

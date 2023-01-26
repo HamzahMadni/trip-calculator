@@ -19,7 +19,7 @@ class CreateRatesTable extends Migration
             $table->enum('rate_type', ['time', 'distance', 'max']);
             $table->integer('start_hour')->nullable();
             $table->integer('end_hour')->nullable();
-            $table->integer('default_rate');
+            $table->float('default_rate');
             $table->integer('special_rate')->nullable();
             $table->integer('special_rate_limit')->nullable();
             $table->boolean('is_weekend')->default(false);
