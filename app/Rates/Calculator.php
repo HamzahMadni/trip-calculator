@@ -70,7 +70,11 @@ class Calculator implements CalculatorContract
                         $twentyFourHourTotal += $rate->default_rate;
 
                         $chunkIsWithinNonDailyMaxRateStartAndEnd = isset($nonDailyMaxRate)
-                            && ($chunk->hour >= $nonDailyMaxRate->start_hour|| $chunk->hour <= $nonDailyMaxRate->end_hour);
+                            && (
+                                $chunk->isWeekend() === $nonDailyMaxRate->is_weekend
+                                && $chunk->hour >= $nonDailyMaxRate->start_hour
+                                && $chunk->hour < $nonDailyMaxRate->end_hour
+                            );
 
                         if ($chunkIsWithinNonDailyMaxRateStartAndEnd) {
                             $nonDailyMaxRateTotal += $rate->default_rate;
@@ -101,7 +105,7 @@ class Calculator implements CalculatorContract
 
         $dailyMaxRate = $this->rates->filter(fn ($rate) => $rate->daily_max)->first();
         if ($dailyMaxRate) {
-            $this->applyMaxRate($timeCost, $dailyMaxRate, $twentyFourHourTotals); //TODO: consistent naming, also fix column names in db.
+            $this->applyMaxRate($timeCost, $dailyMaxRate, $twentyFourHourTotals);
         }
 
         if ($nonDailyMaxRate) {
